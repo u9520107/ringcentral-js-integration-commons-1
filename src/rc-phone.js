@@ -1,8 +1,7 @@
-import addModule from './lib/add-module';
 import RingCentral from 'ringcentral';
 import RingCentralClient from 'ringcentral-client';
 
-import RcModule from './lib/rc-module';
+import RcModule, { addModule } from './lib/rc-module';
 
 import Settings from './modules/settings';
 import Brand from './modules/brand';

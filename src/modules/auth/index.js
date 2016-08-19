@@ -23,12 +23,20 @@ const CONSTANTS = new KeyValueMap({
   loginStatus,
 });
 
+class AuthBase extends RcModule {
+
+}
+
+
+class AuthProxy extends AuthBase {
+
+}
 
 /**
  * @class
  * @description Authentication module
  */
-export default class Auth extends RcModule {
+export default class Auth extends AuthBase {
   /**
    * @function
    */
@@ -221,4 +229,11 @@ export default class Auth extends RcModule {
   async isLoggedIn() {
     return await this[symbols.platform].loggedIn();
   }
+
+  get Proxy() {
+    return AuthProxy;
+  }
 }
+
+
+

@@ -1,5 +1,4 @@
-import RcModule from '../../lib/rc-module';
-import addModule from '../../lib/add-module';
+import RcModule, { addModule } from '../../lib/rc-module';
 
 import SymbolMap from 'data-types/symbol-map';
 import KeyValueMap from 'data-types/key-value-map';
