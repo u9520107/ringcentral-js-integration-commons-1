@@ -1,4 +1,4 @@
-import RcModule from '../../lib/rc-module';
+import RcModule, { proxify } from '../../lib/rc-module';
 import SymbolMap from 'data-types/symbol-map';
 import KeyValueMap from 'data-types/key-value-map';
 import loginStatus from './login-status';
@@ -23,20 +23,12 @@ const CONSTANTS = new KeyValueMap({
   loginStatus,
 });
 
-class AuthBase extends RcModule {
-
-}
-
-
-class AuthProxy extends AuthBase {
-
-}
 
 /**
  * @class
  * @description Authentication module
  */
-export default class Auth extends AuthBase {
+export default class Auth extends RcModule {
   /**
    * @function
    */
@@ -46,58 +38,59 @@ export default class Auth extends AuthBase {
       ...options,
       actions: authActions,
     });
-    const {
-      platform,
-    } = options;
 
-    this[symbols.platform] = platform;
-    this[symbols.beforeLogoutHandlers] = new Set();
+        const {
+          platform,
+        } = options;
 
-    // load info on login
-    platform.on(platform.events.loginSuccess, () => {
-      this.store.dispatch({
-        type: this.actions.loginSuccess,
-      });
-      this::emit(authEventTypes.loginStatusChanged, this.state.status);
-    });
-    // loginError
-    platform.on(platform.events.loginError, error => {
-      this.store.dispatch({
-        type: this.actions.loginError,
-        error,
-      });
-    });
-    // unload info on logout
-    platform.on(platform.events.logoutSuccess, () => {
-      this.store.dispatch({
-        type: this.actions.logoutSuccess,
-      });
-      // this.emit(authEvents.userInfoCleared);
-    });
+        this[symbols.platform] = platform;
+        this[symbols.beforeLogoutHandlers] = new Set();
 
-    platform.on(platform.events.logoutError, error => {
-      this.store.dispatch({
-        type: this.actions.logoutError,
-        error,
-      });
-    });
+        // load info on login
+        platform.on(platform.events.loginSuccess, () => {
+          this.store.dispatch({
+            type: this.actions.loginSuccess,
+          });
+          this::emit(authEventTypes.loginStatusChanged, this.state.status);
+        });
+        // loginError
+        platform.on(platform.events.loginError, error => {
+          this.store.dispatch({
+            type: this.actions.loginError,
+            error,
+          });
+        });
+        // unload info on logout
+        platform.on(platform.events.logoutSuccess, () => {
+          this.store.dispatch({
+            type: this.actions.logoutSuccess,
+          });
+          // this.emit(authEvents.userInfoCleared);
+        });
 
-    platform.on(platform.events.refreshError, error => {
-      this.store.dispatch({
-        type: this.actions.refreshError,
-        error,
-      });
-    });
+        platform.on(platform.events.logoutError, error => {
+          this.store.dispatch({
+            type: this.actions.logoutError,
+            error,
+          });
+        });
 
-    // load info if already logged in
-    (async () => {
-      const loggedIn = await platform.loggedIn();
-      this.store.dispatch({
-        type: this.actions.init,
-        status: loggedIn ? loginStatus.loggedIn : loginStatus.notLoggedIn,
-      });
-      this.emit(authEventTypes.loginStatusChanged, this.state.status);
-    })();
+        platform.on(platform.events.refreshError, error => {
+          this.store.dispatch({
+            type: this.actions.refreshError,
+            error,
+          });
+        });
+
+        // load info if already logged in
+        (async () => {
+          const loggedIn = await platform.loggedIn();
+          this.store.dispatch({
+            type: this.actions.init,
+            status: loggedIn ? loginStatus.loggedIn : loginStatus.notLoggedIn,
+          });
+          this.emit(authEventTypes.loginStatusChanged, this.state.status);
+        })();
   }
 
   get reducer() {
@@ -108,6 +101,7 @@ export default class Auth extends AuthBase {
    * @async
    * @description Login function using username and password
    */
+  @proxify
   async login({ username, password, extension, remember }) {
     this.store.dispatch({
       type: this.actions.login,
@@ -131,6 +125,7 @@ export default class Auth extends AuthBase {
    * @function
    * @description get OAuth page url
    */
+  @proxify
   loginUrl({ redirectUri, state, brandId, display, prompt }) {
     return this[symbols.platform].loginUrl({
       redirectUri,
@@ -146,6 +141,7 @@ export default class Auth extends AuthBase {
    * @param {string} url
    * @return {Object}
    */
+  @proxify
   parseLoginUrl(url) {
     return this[symbols.platform].parseLoginRedirectUrl(url);
   }
@@ -155,6 +151,7 @@ export default class Auth extends AuthBase {
    * @async
    * @description Authorize using OAauth code
    */
+  @proxify
   async authorize({ code, redirectUri }) {
     this.store.dispatch({
       type: this.actions.login,
@@ -175,6 +172,7 @@ export default class Auth extends AuthBase {
    * @async
    * @description Log the user out
    */
+  @proxify
   async logout() {
     // deal with removing subscriptions
 
@@ -196,6 +194,7 @@ export default class Auth extends AuthBase {
    * @param {Function} handler
    * @returns {Function}
    */
+  @proxify
   addBeforeLogoutHandler(handler) {
     this[symbols.beforeLogoutHandlers].add(handler);
     return () => {
@@ -206,6 +205,7 @@ export default class Auth extends AuthBase {
    * @function
    * @param {Function} handler
    */
+  @proxify
   removeBeforeLogoutHandler(handler) {
     this[symbols.beforeLogoutHandlers].remove(handler);
   }
@@ -226,12 +226,9 @@ export default class Auth extends AuthBase {
     return CONSTANTS;
   }
 
+  @proxify
   async isLoggedIn() {
     return await this[symbols.platform].loggedIn();
-  }
-
-  get Proxy() {
-    return AuthProxy;
   }
 }
 

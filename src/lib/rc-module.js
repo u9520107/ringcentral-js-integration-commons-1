@@ -1,6 +1,11 @@
 import SymbolMap from 'data-types/symbol-map';
 import { prefixActions } from './redux-helper';
 import EventEmitter from 'event-emitter';
+import Loganberry from 'loganberry';
+
+const logger = new Loganberry({
+  prefix: 'rc-module',
+});
 
 const symbols = new SymbolMap([
   'store',
@@ -8,7 +13,7 @@ const symbols = new SymbolMap([
   'prefix',
   'actions',
   'emitter',
-  'subModule',
+  'subModules',
 ]);
 
 /**
@@ -46,6 +51,7 @@ export default class RcModule {
     this[symbols.getState] = getState;
     this[symbols.prefix] = prefix;
     this[symbols.actions] = actions && prefixActions(actions, prefix);
+    this[symbols.subModules] = {};
     promiseForStore.then((store) => {
       this[symbols.store] = store;
     });
@@ -131,5 +137,11 @@ export function addModule(name, module) {
     },
     enumerable: true,
   });
+  this[symbols.subModules][name] = module[symbols.subModule];
 }
 RcModule.addModule = addModule;
+
+export function proxify(prototype, property, descriptor) {
+  logger.trace(`proxify(${prototype}, ${property}, ${descriptor})`);
+  return descriptor;
+}
