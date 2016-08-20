@@ -69,6 +69,7 @@
     "loganberry": "^0.9.1",
     "redux": "^3.5.2",
     "tabbie": "^0.8.1",
+    "uuid": "^2.0.2",
     "whatwg-fetch": "^1.0.0",
     "yargs": "^4.6.0"
   }

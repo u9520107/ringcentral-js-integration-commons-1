@@ -94,14 +94,14 @@ export default class RcPhone extends RcModule {
       auth: this.auth,
     }));
 
-    this::addModule('contact', new Contact({
-      promiseForStore,
-      getState: () => this.state.contact,
-      prefix,
-      api: this.api,
-      platform: this.platform,
-      settings: this.settings,
-    }));
+    // this::addModule('contact', new Contact({
+    //   promiseForStore,
+    //   getState: () => this.state.contact,
+    //   prefix,
+    //   api: this.api,
+    //   platform: this.platform,
+    //   settings: this.settings,
+    // }));
 
     // combine reducers
     this[REDUCER] = combineReducers({
@@ -110,7 +110,7 @@ export default class RcPhone extends RcModule {
       subscription: this.subscription.reducer,
       user: this.user.reducer,
       webphone: this.webphone.reducer,
-      contact: this.contact.reducer,
+      // contact: this.contact.reducer,
       settings: this.settings.reducer,
     });
     if (resolver) {

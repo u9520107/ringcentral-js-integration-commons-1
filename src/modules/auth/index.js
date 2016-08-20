@@ -1,4 +1,5 @@
-import RcModule, { proxify } from '../../lib/rc-module';
+import RcModule from '../../lib/rc-module';
+import { proxify } from '../rc-proxy';
 import SymbolMap from 'data-types/symbol-map';
 import KeyValueMap from 'data-types/key-value-map';
 import loginStatus from './login-status';
@@ -39,58 +40,65 @@ export default class Auth extends RcModule {
       actions: authActions,
     });
 
-        const {
-          platform,
-        } = options;
+    const {
+      platform,
+      proxy,
+    } = options;
 
-        this[symbols.platform] = platform;
-        this[symbols.beforeLogoutHandlers] = new Set();
+    this.on('state-change', ({ oldState, newState }) => {
+      // loginStatusChanged
+      if (!oldState || oldState.status !== newState.status) {
+        this::emit(authEventTypes.loginStatusChanged, newState.status);
+      }
+    });
 
-        // load info on login
-        platform.on(platform.events.loginSuccess, () => {
-          this.store.dispatch({
-            type: this.actions.loginSuccess,
-          });
-          this::emit(authEventTypes.loginStatusChanged, this.state.status);
-        });
-        // loginError
-        platform.on(platform.events.loginError, error => {
-          this.store.dispatch({
-            type: this.actions.loginError,
-            error,
-          });
-        });
-        // unload info on logout
-        platform.on(platform.events.logoutSuccess, () => {
-          this.store.dispatch({
-            type: this.actions.logoutSuccess,
-          });
-          // this.emit(authEvents.userInfoCleared);
-        });
+    if (!proxy) {
+      this[symbols.platform] = platform;
+      this[symbols.beforeLogoutHandlers] = new Set();
 
-        platform.on(platform.events.logoutError, error => {
-          this.store.dispatch({
-            type: this.actions.logoutError,
-            error,
-          });
+      // load info on login
+      platform.on(platform.events.loginSuccess, () => {
+        this.store.dispatch({
+          type: this.actions.loginSuccess,
         });
-
-        platform.on(platform.events.refreshError, error => {
-          this.store.dispatch({
-            type: this.actions.refreshError,
-            error,
-          });
+      });
+      // loginError
+      platform.on(platform.events.loginError, error => {
+        this.store.dispatch({
+          type: this.actions.loginError,
+          error,
         });
+      });
+      // unload info on logout
+      platform.on(platform.events.logoutSuccess, () => {
+        this.store.dispatch({
+          type: this.actions.logoutSuccess,
+        });
+      });
 
-        // load info if already logged in
-        (async () => {
-          const loggedIn = await platform.loggedIn();
-          this.store.dispatch({
-            type: this.actions.init,
-            status: loggedIn ? loginStatus.loggedIn : loginStatus.notLoggedIn,
-          });
-          this.emit(authEventTypes.loginStatusChanged, this.state.status);
-        })();
+      platform.on(platform.events.logoutError, error => {
+        this.store.dispatch({
+          type: this.actions.logoutError,
+          error,
+        });
+      });
+
+      platform.on(platform.events.refreshError, error => {
+        this.store.dispatch({
+          type: this.actions.refreshError,
+          error,
+        });
+      });
+
+      // load info if already logged in
+      (async () => {
+        const loggedIn = await platform.loggedIn();
+        this.store.dispatch({
+          type: this.actions.init,
+          status: loggedIn ? loginStatus.loggedIn : loginStatus.notLoggedIn,
+        });
+      })();
+    }
   }
 
   get reducer() {
@@ -103,6 +111,7 @@ export default class Auth extends RcModule {
    */
   @proxify
   async login({ username, password, extension, remember }) {
+    logger.trace('login()');
     this.store.dispatch({
       type: this.actions.login,
       payload: {
@@ -112,7 +121,6 @@ export default class Auth extends RcModule {
         remember,
       },
     });
-    this::emit(authEventTypes.loginStatusChanged, authEvents.loggingIn);
     return await this[symbols.platform].login({
       username,
       password,
@@ -125,7 +133,6 @@ export default class Auth extends RcModule {
    * @function
    * @description get OAuth page url
    */
-  @proxify
   loginUrl({ redirectUri, state, brandId, display, prompt }) {
     return this[symbols.platform].loginUrl({
       redirectUri,
@@ -141,7 +148,6 @@ export default class Auth extends RcModule {
    * @param {string} url
    * @return {Object}
    */
-  @proxify
   parseLoginUrl(url) {
     return this[symbols.platform].parseLoginRedirectUrl(url);
   }
@@ -160,7 +166,6 @@ export default class Auth extends RcModule {
         redirectUri,
       },
     });
-    this::emit(authEventTypes.loginStatusChanged, authEvents.loggingIn);
     return await this[symbols.platform].login({
       code,
       redirectUri,
@@ -175,8 +180,9 @@ export default class Auth extends RcModule {
   @proxify
   async logout() {
     // deal with removing subscriptions
-
-    this::emit(authEventTypes.loginStatusChanged, authEvents.loggingOut);
+    this.store.dispatch({
+      type: this.actions.logout,
+    });
     const handlers = [...this[symbols.beforeLogoutHandlers]];
     for (const handler of handlers) {
       try {

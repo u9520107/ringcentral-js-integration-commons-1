@@ -1,7 +1,7 @@
 import SymbolMap from 'data-types/symbol-map';
 import { prefixActions } from './redux-helper';
-import EventEmitter from 'event-emitter';
 import Loganberry from 'loganberry';
+import Emitter from './emitter';
 
 const logger = new Loganberry({
   prefix: 'rc-module',
@@ -13,7 +13,8 @@ const symbols = new SymbolMap([
   'prefix',
   'actions',
   'emitter',
-  'subModules',
+  'modulePath',
+  'oldState',
 ]);
 
 /**
@@ -36,7 +37,7 @@ function defaultGetState() {
  * @default
  * @description Base module class.
  */
-export default class RcModule {
+export default class RcModule extends Emitter {
   /**
    * @constructor
    */
@@ -46,56 +47,25 @@ export default class RcModule {
     prefix,
     actions,
   }) {
-    // Extending EventEmitter breaks some mechanic, so we wire emitter up like this instead.
-    this[symbols.emitter] = new EventEmitter();
+    super();
     this[symbols.getState] = getState;
     this[symbols.prefix] = prefix;
     this[symbols.actions] = actions && prefixActions(actions, prefix);
-    this[symbols.subModules] = {};
     promiseForStore.then((store) => {
+      logger.trace('promiseForStore resolved');
       this[symbols.store] = store;
-    });
-  }
 
-  /**
-   * @function
-   * @param {String} event
-   * @param {Function} handler
-   * @return {Function} Unregister function.
-   */
-  on(event, handler) {
-    this[symbols.emitter].on(event, handler);
-    return () => {
-      this[symbols.emitter].off(event, handler);
-    };
-  }
-  /**
-   * @function
-   * @param {String} event
-   * @param {Function)} handler
-   * @return {Function} Unregister function.
-   */
-  once(event, handler) {
-    this[symbols.emitter].once(event, handler);
-    return () => {
-      this[symbols.emitter].off(event, handler);
-    };
-  }
-  /**
-   * @function
-   * @param {String} event
-   * @param {...args} args
-   */
-  emit(event, ...args) {
-    this[symbols.emitter].emit(event, ...args);
-  }
-  /**
-   * @function
-   * @param {String} event
-   * @param {Function} handler
-   */
-  off(event, handler) {
-    this[symbols.emitter].off(event, handler);
+      // state change event for state tracking
+      store.subscribe(() => {
+        const oldState = this[symbols.oldState];
+        const newState = this.state;
+        this.emit('state-change', {
+          oldState,
+          newState,
+        });
+        this[symbols.oldState] = newState;
+      });
+    });
   }
 
   get state() {
@@ -105,6 +75,9 @@ export default class RcModule {
     return defaultReducer;
   }
   get store() {
+    if (!this[symbols.store]) {
+      logger.error('promiseForStore has not been initialized...');
+    }
     return this[symbols.store];
   }
   get prefix() {
@@ -113,7 +86,9 @@ export default class RcModule {
   get actions() {
     return this[symbols.actions];
   }
-
+  get modulePath() {
+    return this[symbols.modulePath] || 'root';
+  }
 }
 
 /**
@@ -133,15 +108,18 @@ export function addModule(name, module) {
   }
   Object.defineProperty(this, name, {
     get() {
+      if (!!this[symbols.proxy] && !module instanceof RcModule) {
+        throw new Error('Non-RcModule modules are not available in proxied-mode');
+      }
       return module;
     },
     enumerable: true,
   });
-  this[symbols.subModules][name] = module[symbols.subModule];
+
+  // tag submodule with a modulePath for proxying function calls
+  // do nothing if module is already tagged
+  if (!this[name][symbols.modulePath]) {
+    this[name][symbols.modulePath] = `${this.modulePath}.${name}`;
+  }
 }
 RcModule.addModule = addModule;
-
-export function proxify(prototype, property, descriptor) {
-  logger.trace(`proxify(${prototype}, ${property}, ${descriptor})`);
-  return descriptor;
-}
