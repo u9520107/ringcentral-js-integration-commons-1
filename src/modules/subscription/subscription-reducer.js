@@ -6,6 +6,7 @@ const initialState = {
   cacheKey: null,
   filters: [],
   status: subscriptionEvents.pending,
+  lastMessage: null,
 };
 
 export default function getSubscriptionReducer(prefix) {
@@ -30,6 +31,18 @@ export default function getSubscriptionReducer(prefix) {
           state,
           {
             filters: action.filters.slice(),
+          },
+        );
+
+      case actions.notification:
+        return Object.assign(
+          {},
+          state,
+          {
+            lastMessage: {
+              eventTypes: action.eventTypes,
+              message: action.message,
+            },
           },
         );
 

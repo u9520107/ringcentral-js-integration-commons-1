@@ -6,6 +6,7 @@ import { subscriptionEvents, subscriptionEventTypes } from './subscription-event
 import subscriptionStatus from './subscription-status';
 import KeyValueMap, { hasValue } from 'data-types/key-value-map';
 import { emit } from '../../lib/utils';
+import { proxify } from '../rc-proxy';
 
 const symbols = new SymbolMap([
   'auth',
@@ -51,9 +52,9 @@ function messageHandler(message) {
     payload: message,
   });
   // emit the messages as events
-  events.forEach(event => {
-    this::emit(subscriptionEventTypes.notification, subscriptionEvents[event], message);
-  });
+  // events.forEach(event => {
+  //   this::emit(subscriptionEventTypes.notification, subscriptionEvents[event], message);
+  // });
 }
 function init() {
   const platform = this[symbols.platform];
@@ -84,7 +85,7 @@ function init() {
       status: subscriptionStatus.notSubscribed,
       subscription: null,
     });
-    this::emit(subscriptionEventTypes.statusChanged, this.status);
+    // this::emit(subscriptionEventTypes.statusChanged, this.status);
   });
   this.base.on(this.base.events.removeError, () => {
     // TODO
@@ -93,15 +94,15 @@ function init() {
     if (cacheKey) {
       localStorage.setItem(cacheKey, JSON.stringify(this.base.subscription()));
     }
-    const oldStatus = this.status;
+    // const oldStatus = this.status;
     this.store.dispatch({
       type: this.actions.updateStatus,
       status: subscriptionStatus.subscribed,
       subscription: this.base.subscription(),
     });
-    if (oldStatus !== this.status) {
-      this::emit(subscriptionEventTypes.statusChanged, this.status);
-    }
+    // if (oldStatus !== this.status) {
+    //   this::emit(subscriptionEventTypes.statusChanged, this.status);
+    // }
   });
   this.base.on(this.base.events.renewError, error => {
     // TODO handle 429
@@ -110,7 +111,7 @@ function init() {
       status: subscriptionStatus.notSubscribed,
       subscription: null,
     });
-    this::emit(subscriptionEventTypes.statusChanged, this.status);
+    // this::emit(subscriptionEventTypes.statusChanged, this.status);
     this.base.reset().setEventFilters(this.filters).register().catch(e => { });
   });
   this.base.on(this.base.events.subscribeSuccess, () => {
@@ -122,7 +123,7 @@ function init() {
       status: subscriptionStatus.subscribed,
       subscription: this.base.subscription(),
     });
-    this::emit(subscriptionEventTypes.statusChanged, this.status);
+    // this::emit(subscriptionEventTypes.statusChanged, this.status);
   });
   this.base.on(this.base.events.subscribeError, error => {
     // TODO
@@ -204,7 +205,8 @@ export default class Subscription extends RcModule {
     return subscriptionEventTypes;
   }
 
-  subscribe(event) {
+  @proxify
+  async subscribe(event) {
     // TODO normalized error
     if (!subscriptionEvents::hasValue(event)) {
       throw new Error('event is not recognized');
@@ -226,7 +228,8 @@ export default class Subscription extends RcModule {
     }
   }
 
-  unsubscribe(event) {
+  @proxify
+  async unsubscribe(event) {
     // TODO normalized error
     if (!subscriptionEvents::KeyValueMap.hasValue(event)) {
       throw new Error('event is not recognized');
@@ -252,6 +255,7 @@ export default class Subscription extends RcModule {
     }
   }
 
+  @proxify
   async reset() {
     try {
       if (this.base) {
@@ -271,9 +275,9 @@ export default class Subscription extends RcModule {
       status: subscriptionStatus.notSubscribed,
       subscription: null,
     });
-    if (oldStatus !== this.status) {
-      this::emit(subscriptionEventTypes.statusChanged, this.status);
-    }
+    // if (oldStatus !== this.status) {
+    //   this::emit(subscriptionEventTypes.statusChanged, this.status);
+    // }
   }
 
 

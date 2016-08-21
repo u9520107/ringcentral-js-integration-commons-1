@@ -172,5 +172,3 @@ export function getProxyClient(Module) {
     }
   };
 }
-
-

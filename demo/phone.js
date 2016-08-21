@@ -107,8 +107,6 @@ class EventTransport extends Emitter {
   }
 }
 
-
-
 class Phone extends RcModule {
   constructor(options) {
     super(options);
@@ -146,9 +144,6 @@ const server = new Server({
 
 serverStoreResolver(createStore(server.reducer));
 
-
-
-
 const Client = getProxyClient(Phone);
 
 let proxyStoreResolver = null;
@@ -174,8 +169,6 @@ proxy.auth.isLoggedIn().then(() => {
   proxy.auth.on(proxy.auth.events.loggedIn, () => {
     console.log('loggedIn');
   });
-
-
 }).catch(e => {
   logger.error(e);
 });

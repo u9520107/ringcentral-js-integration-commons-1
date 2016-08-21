@@ -237,6 +237,3 @@ export default class Auth extends RcModule {
     return await this[symbols.platform].loggedIn();
   }
 }
-
-
-
