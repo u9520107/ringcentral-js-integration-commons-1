@@ -1,5 +1,5 @@
-import RcModule from '../../lib/rc-module';
-import { proxify } from '../rc-proxy';
+import RcModule, { initFunction } from '../../lib/rc-module';
+import { proxify, throwOnProxy } from '../rc-proxy';
 import SymbolMap from 'data-types/symbol-map';
 import KeyValueMap from 'data-types/key-value-map';
 import loginStatus from './login-status';
@@ -13,17 +13,16 @@ const logger = new Loganberry({
   prefix: 'auth',
 });
 
-
 const symbols = new SymbolMap([
   'platform',
   'emitter',
   'beforeLogoutHandlers',
+  'init',
 ]);
 
 const CONSTANTS = new KeyValueMap({
   loginStatus,
 });
-
 
 /**
  * @class
@@ -42,63 +41,62 @@ export default class Auth extends RcModule {
 
     const {
       platform,
-      proxy,
     } = options;
-
     this.on('state-change', ({ oldState, newState }) => {
       // loginStatusChanged
       if (!oldState || oldState.status !== newState.status) {
         this::emit(authEventTypes.loginStatusChanged, newState.status);
       }
     });
+    this[symbols.platform] = platform;
+  }
+  @initFunction
+  init() {
+    const platform = this[symbols.platform];
+    this[symbols.beforeLogoutHandlers] = new Set();
 
-    if (!proxy) {
-      this[symbols.platform] = platform;
-      this[symbols.beforeLogoutHandlers] = new Set();
+    // load info on login
+    platform.on(platform.events.loginSuccess, () => {
+      this.store.dispatch({
+        type: this.actions.loginSuccess,
+      });
+    });
+    // loginError
+    platform.on(platform.events.loginError, error => {
+      this.store.dispatch({
+        type: this.actions.loginError,
+        error,
+      });
+    });
+    // unload info on logout
+    platform.on(platform.events.logoutSuccess, () => {
+      this.store.dispatch({
+        type: this.actions.logoutSuccess,
+      });
+    });
 
-      // load info on login
-      platform.on(platform.events.loginSuccess, () => {
-        this.store.dispatch({
-          type: this.actions.loginSuccess,
-        });
+    platform.on(platform.events.logoutError, error => {
+      this.store.dispatch({
+        type: this.actions.logoutError,
+        error,
       });
-      // loginError
-      platform.on(platform.events.loginError, error => {
-        this.store.dispatch({
-          type: this.actions.loginError,
-          error,
-        });
-      });
-      // unload info on logout
-      platform.on(platform.events.logoutSuccess, () => {
-        this.store.dispatch({
-          type: this.actions.logoutSuccess,
-        });
-      });
+    });
 
-      platform.on(platform.events.logoutError, error => {
-        this.store.dispatch({
-          type: this.actions.logoutError,
-          error,
-        });
+    platform.on(platform.events.refreshError, error => {
+      this.store.dispatch({
+        type: this.actions.refreshError,
+        error,
       });
+    });
 
-      platform.on(platform.events.refreshError, error => {
-        this.store.dispatch({
-          type: this.actions.refreshError,
-          error,
-        });
+    // load info if already logged in
+    (async () => {
+      const loggedIn = await platform.loggedIn();
+      this.store.dispatch({
+        type: this.actions.init,
+        status: loggedIn ? loginStatus.loggedIn : loginStatus.notLoggedIn,
       });
-
-      // load info if already logged in
-      (async () => {
-        const loggedIn = await platform.loggedIn();
-        this.store.dispatch({
-          type: this.actions.init,
-          status: loggedIn ? loginStatus.loggedIn : loginStatus.notLoggedIn,
-        });
-      })();
-    }
+    })();
   }
 
   get reducer() {
@@ -200,7 +198,7 @@ export default class Auth extends RcModule {
    * @param {Function} handler
    * @returns {Function}
    */
-  @proxify
+  @throwOnProxy
   addBeforeLogoutHandler(handler) {
     this[symbols.beforeLogoutHandlers].add(handler);
     return () => {
@@ -237,3 +235,4 @@ export default class Auth extends RcModule {
     return await this[symbols.platform].loggedIn();
   }
 }
+

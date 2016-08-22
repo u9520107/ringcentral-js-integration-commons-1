@@ -6,7 +6,7 @@ export default {
   entry: [
     'webpack-dev-server/client?http://localhost:8191',
     'webpack/hot/only-dev-server',
-    path.resolve(__dirname, 'app'),
+    path.resolve(__dirname, '../demo/phone'),
   ],
   output: {
     path: path.resolve(__dirname, 'build'),

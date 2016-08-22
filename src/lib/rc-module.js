@@ -15,6 +15,8 @@ const symbols = new SymbolMap([
   'emitter',
   'modulePath',
   'oldState',
+  'initFunction',
+  'suppressInit',
 ]);
 
 /**
@@ -65,6 +67,10 @@ export default class RcModule extends Emitter {
         });
         this[symbols.oldState] = newState;
       });
+
+      if (!this[symbols.suppressInit] && typeof this[symbols.initFunction] === 'function') {
+        this[symbols.initFunction]();
+      }
     });
   }
 
@@ -123,3 +129,33 @@ export function addModule(name, module) {
   }
 }
 RcModule.addModule = addModule;
+
+export function initFunction(prototype, property, descriptor) {
+  const {
+    value,
+  } = descriptor;
+  if (typeof value !== 'function') {
+    throw new Error('initFunction must be a function');
+  }
+  const proto = prototype;
+  proto[symbols.initFunction] = value;
+
+  function proxyFunction() {
+    throw new Error('Init function cannot be called directly');
+  }
+  proxyFunction.toString = () => value.toString();
+
+  return {
+    enumerable: true,
+    configurable: false,
+    get() {
+      return proxyFunction;
+    },
+  };
+}
+RcModule.initFunction = initFunction;
+
+export function suppressInit() {
+  this[symbols.suppressInit] = true;
+}
+RcModule.suppressInit = suppressInit;

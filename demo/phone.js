@@ -1,11 +1,12 @@
-import RcModule, { addModule } from '../src/lib/rc-module';
-import Auth from '../src/modules/auth';
-import RingCentral from 'ringcentral';
 import config from '../config';
+import RcModule, { addModule } from '../src/lib/rc-module';
+import RingCentral from 'ringcentral';
 import { combineReducers, createStore } from 'redux';
 import Loganberry from 'loganberry';
-import { getProxyServer, getProxyClient } from '../src/modules/rc-proxy';
+import { getProxyServer, getProxyClient, isProxy } from '../src/modules/rc-proxy';
 import uuid from 'uuid';
+import Auth from '../src/modules/auth';
+import Subscription from '../src/modules/subscription';
 
 import EventEmitter from 'event-emitter';
 import Emitter from '../src/lib/emitter';
@@ -120,8 +121,17 @@ class Phone extends RcModule {
       getState: () => this.state.auth,
     }));
 
+    this::addModule('subscription', new Subscription({
+      ...options,
+      auth: this.auth,
+      sdk: this.sdk,
+      platform: this.sdk.platform(),
+      getState: () => this.state.subscription,
+    }));
+
     this[REDUCER] = combineReducers({
       auth: this.auth.reducer,
+      subscription: this.subscription.reducer,
     });
   }
   get reducer() {
@@ -159,16 +169,27 @@ const proxy = new Client({
 
 proxyStoreResolver(createStore(proxy.reducer));
 
-proxy.auth.isLoggedIn().then(() => {
+proxy.auth.isLoggedIn().then(loggedIn => {
   console.log(proxy.auth.loginUrl({
     redirectUri: 'localhost:8080/redirect',
   }));
-  proxy.auth.login({
-    ...config.user,
-  });
-  proxy.auth.on(proxy.auth.events.loggedIn, () => {
-    console.log('loggedIn');
-  });
+
+  proxy.subscription.subscribe(
+    '/restapi/v1.0/account/~/extension/~/presence?detailedTelephonyState=true'
+  );
+  proxy.subscription.on(
+    proxy.subscription.eventTypes.notification,
+    (message) => {
+      logger.info(message);
+    }
+  );
+  if (!loggedIn) {
+    proxy.auth.login({
+      ...config.user,
+    });
+  }
 }).catch(e => {
   logger.error(e);
 });
+
+global.proxy = proxy;

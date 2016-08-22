@@ -39,10 +39,7 @@ export default function getSubscriptionReducer(prefix) {
           {},
           state,
           {
-            lastMessage: {
-              eventTypes: action.eventTypes,
-              message: action.message,
-            },
+            lastMessage: action.message,
           },
         );
 
