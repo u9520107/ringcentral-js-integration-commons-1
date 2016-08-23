@@ -15,6 +15,7 @@ const symbols = new SymbolMap([
   'transport',
   'proxyInitFunction',
   'id',
+  'syncPromise',
 ]);
 
 const proxyActions = new ActionMap([
@@ -201,7 +202,7 @@ function getProxyClientReducer(prefix, moduleReducer) {
         }
         return state;
       case actions.sync:
-        if (action.state && action.timestamp > state.timestamp) {
+        if (action.timestamp > state.timestamp) {
           return Object.assign(
             {},
             state,
@@ -216,6 +217,23 @@ function getProxyClientReducer(prefix, moduleReducer) {
         return state;
     }
   };
+}
+
+function sync() {
+  if (!this[symbols.syncPromise]) {
+    this[symbols.syncPromise] = (async () => {
+      const result = await this[symbols.transport].request({
+        payload: {
+          type: `${this.prefix ? `${this.prefix}-` : ''}proxy-sync`,
+        },
+      });
+      this.store.dispatch({
+        ...result,
+        type: this.actions.sync,
+      });
+      this[symbols.syncPromise] = null;
+    })();
+  }
 }
 
 export function proxyInitFunction(prototype, property, descriptor) {
@@ -300,32 +318,23 @@ export function getProxyClient(Module) {
       this[symbols.transport] = transport;
       this[symbols.module]::setTransport(transport);
 
-      transport.on(transport.events.push, async payload => {
+      this[symbols.reducer] = getProxyClientReducer(this.prefix, this[symbols.module].reducer);
+    }
+    @initFunction
+    init() {
+      const transport = this[symbols.transport];
+      this[symbols.module]::initProxy();
+      transport.on(transport.events.push, async payload => {  // register push after init
         if (payload.type === `${this.prefix ? `${this.prefix}-` : ''}proxy-action`) {
           logger.trace(payload);
-          const store = this.store || await options.promiseForStore;
-          store.dispatch({
+          if (this[symbols.syncPromise]) await this[symbols.syncPromise];
+          this.store.dispatch({
             ...payload,
             type: this.actions.action,
           });
         }
       });
-
-      this[symbols.reducer] = getProxyClientReducer(this.prefix, this[symbols.module].reducer);
-    }
-    @initFunction
-    init() {
-      this[symbols.module]::initProxy();
-      this[symbols.transport].request({
-        payload: {
-          type: `${this.prefix ? `${this.prefix}-` : ''}proxy-sync`,
-        },
-      }).then(result => {
-        this.store.dispatch({
-          ...result,
-          type: this.actions.sync,
-        });
-      });
+      this::sync();
     }
     get reducer() {
       return this[symbols.reducer];

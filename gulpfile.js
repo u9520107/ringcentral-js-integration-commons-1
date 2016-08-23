@@ -62,17 +62,19 @@ function getTestSources() {
 }
 
 
-gulp.task('pre-coverage', () => (
-  gulp.src('src/**/*.js')
+gulp.task('pre-coverage', () => {
+  const testSources = getTestSources();
+
+  return gulp.src('src/**/*.js')
     .pipe(istanbul({
-      includeUntested: true,
+      includeUntested: testSources.length === 1 && testSources[0] === 'test/**/*.js',
       instrumenter: babelIstanbul.Instrumenter,
     }))
-    .pipe(istanbul.hookRequire())
-));
+    .pipe(istanbul.hookRequire());
+});
 
 gulp.task('test', ['pre-coverage'], () => (
-  gulp.src('test/**/*.js')
+  gulp.src(getTestSources())
     .pipe(mocha({
       timeout: TIMEOUT,
     }))

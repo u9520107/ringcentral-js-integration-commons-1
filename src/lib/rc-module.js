@@ -43,16 +43,31 @@ export default class RcModule extends Emitter {
   /**
    * @constructor
    */
-  constructor({
-    promiseForStore,
-    getState = defaultGetState,
-    prefix,
-    actions,
-  }) {
+  constructor(options = {}) {
     super();
+    const {
+      promiseForStore,
+      getState = defaultGetState,
+      prefix,
+      actions,
+    } = options;
+    if (typeof getState !== 'function') {
+      throw new Error(
+        'The `getState` options property must be of type function'
+      );
+    }
     this[symbols.getState] = getState;
+    if (prefix && typeof prefix !== 'string') {
+      throw new Error('The `prefix` options property must be null, undefined, or a string');
+    }
     this[symbols.prefix] = prefix;
     this[symbols.actions] = actions && prefixActions(actions, prefix);
+
+    if (!promiseForStore || typeof promiseForStore.then !== 'function') {
+      throw new Error(
+        'The `promiseForStore` options property must be a promise or promise-like object'
+      );
+    }
     promiseForStore.then((store) => {
       logger.trace('promiseForStore resolved');
       this[symbols.store] = store;
@@ -82,7 +97,7 @@ export default class RcModule extends Emitter {
   }
   get store() {
     if (!this[symbols.store]) {
-      logger.error('promiseForStore has not been initialized...');
+      throw new Error('promiseForStore has not been initialized...');
     }
     return this[symbols.store];
   }
@@ -128,8 +143,15 @@ export function addModule(name, module) {
     this[name][symbols.modulePath] = `${this.modulePath}.${name}`;
   }
 }
-RcModule.addModule = addModule;
 
+/**
+ * @function
+ * @decorator
+ * @param {Object} prototype
+ * @param {String} property
+ * @param {Object} descriptor
+ * @description Decorator function to decorate initialize functions for RcModules
+ */
 export function initFunction(prototype, property, descriptor) {
   const {
     value,
@@ -141,7 +163,7 @@ export function initFunction(prototype, property, descriptor) {
   proto[symbols.initFunction] = value;
 
   function proxyFunction() {
-    throw new Error('Init function cannot be called directly');
+    throw new Error('initFunction cannot be called directly');
   }
   proxyFunction.toString = () => value.toString();
 
@@ -153,9 +175,11 @@ export function initFunction(prototype, property, descriptor) {
     },
   };
 }
-RcModule.initFunction = initFunction;
 
+/**
+ * @function
+ * @description Helper function used to suppress the call of initFunction
+ */
 export function suppressInit() {
   this[symbols.suppressInit] = true;
 }
-RcModule.suppressInit = suppressInit;

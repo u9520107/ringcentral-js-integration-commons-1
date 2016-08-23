@@ -209,7 +209,7 @@ export default class Auth extends RcModule {
    * @function
    * @param {Function} handler
    */
-  @proxify
+  @throwOnProxy
   removeBeforeLogoutHandler(handler) {
     this[symbols.beforeLogoutHandlers].remove(handler);
   }
