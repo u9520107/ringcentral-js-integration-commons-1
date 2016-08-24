@@ -121,17 +121,14 @@ export default class RcModule extends Emitter {
  *  use call/apply (addModule.call(target, 'testmodule', {})).
  */
 export function addModule(name, module) {
-  if (this === global || this === RcModule) {
-    throw new Error('addModule is intended to be used with scope binding...');
+  if (!this || !(this instanceof RcModule)) {
+    throw new Error('addModule should be called with scope binding to target module');
   }
   if (this::Object.prototype.hasOwnProperty(name)) {
     throw new Error(`module '${name}' already exists...`);
   }
   Object.defineProperty(this, name, {
     get() {
-      if (!!this[symbols.proxy] && !module instanceof RcModule) {
-        throw new Error('Non-RcModule modules are not available in proxied-mode');
-      }
       return module;
     },
     enumerable: true,
@@ -165,6 +162,7 @@ export function initFunction(prototype, property, descriptor) {
   function proxyFunction() {
     throw new Error('initFunction cannot be called directly');
   }
+  // eslint-disable-next-line
   proxyFunction.toString = () => value.toString();
 
   return {
