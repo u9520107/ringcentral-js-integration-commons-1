@@ -196,6 +196,7 @@ export function getProxyClient(Module) {
         if (payload.type === this.actions.action) {
           logger.trace(payload);
           if (this[symbols.syncPromise]) await this[symbols.syncPromise];
+          // TODO: should trigger sync if actionNumber is not in sequence
           this.store.dispatch({
             ...payload,
             type: this.actions.action,

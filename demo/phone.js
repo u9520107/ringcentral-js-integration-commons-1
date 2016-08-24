@@ -19,7 +19,7 @@ const REDUCER = Symbol();
 
 const transport = new EventTransport({
   prefix: 'test',
-  timeout: 5,
+  timeout: 90,
 });
 
 class Phone extends RcModule {
