@@ -1,5 +1,5 @@
 import RcModule, { initFunction } from '../../lib/rc-module';
-import { proxify, throwOnProxy } from '../rc-proxy';
+import { proxify, throwOnProxy } from '../proxy';
 import SymbolMap from 'data-types/symbol-map';
 import KeyValueMap from 'data-types/key-value-map';
 import loginStatus from './login-status';

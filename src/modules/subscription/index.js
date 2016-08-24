@@ -5,7 +5,7 @@ import getSubscriptionReducer from './subscription-reducer';
 import { subscriptionEvents, subscriptionEventTypes } from './subscription-events';
 import subscriptionStatus from './subscription-status';
 import { emit } from '../../lib/utils';
-import { proxify } from '../rc-proxy';
+import { proxify } from '../proxy';
 
 const symbols = new SymbolMap([
   'auth',

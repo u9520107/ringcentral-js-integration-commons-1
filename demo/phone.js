@@ -3,7 +3,8 @@ import RcModule, { addModule } from '../src/lib/rc-module';
 import RingCentral from 'ringcentral';
 import { combineReducers, createStore } from 'redux';
 import Loganberry from 'loganberry';
-import { getProxyServer, getProxyClient } from '../src/modules/rc-proxy';
+import { getProxyClient } from '../src/modules/proxy';
+import getProxyServer from '../src/modules/proxy/get-proxy-server';
 import Auth from '../src/modules/auth';
 import Subscription from '../src/modules/subscription';
 
@@ -79,8 +80,11 @@ setTimeout(() => {
     promiseForStore: promiseForProxyStore,
     transport,
   });
-
-  proxyStoreResolver(createStore(proxy.reducer));
+  const store = createStore(proxy.reducer);
+  store.subscribe(() => {
+    logger.trace(JSON.stringify(store.getState(), null, 2));
+  });
+  proxyStoreResolver(store);
 
   proxy.auth.isLoggedIn().then(loggedIn => {
     console.log(proxy.auth.loginUrl({
