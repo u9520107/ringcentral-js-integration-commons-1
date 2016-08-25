@@ -85,24 +85,6 @@ export function throwOnProxy(prototype, property, descriptor) {
   };
 }
 
-
-function sync() {
-  if (!this[symbols.syncPromise]) {
-    this[symbols.syncPromise] = (async () => {
-      const result = await this[symbols.transport].request({
-        payload: {
-          type: this.actions.sync,
-        },
-      });
-      this.store.dispatch({
-        ...result,
-        type: this.actions.sync,
-      });
-      this[symbols.syncPromise] = null;
-    })();
-  }
-}
-
 export function proxyInitFunction(prototype, property, descriptor) {
   const {
     value,
@@ -146,6 +128,23 @@ function setTransport(transport, actions) {
       this[subModule]::setTransport(transport, actions);
       this[subModule]::suppressInit();
     }
+  }
+}
+
+function sync() {
+  if (!this[symbols.syncPromise]) {
+    this[symbols.syncPromise] = (async () => {
+      const result = await this[symbols.transport].request({
+        payload: {
+          type: this.actions.sync,
+        },
+      });
+      this.store.dispatch({
+        ...result,
+        type: this.actions.sync,
+      });
+      this[symbols.syncPromise] = null;
+    })();
   }
 }
 
@@ -196,11 +195,14 @@ export function getProxyClient(Module) {
         if (payload.type === this.actions.action) {
           logger.trace(payload);
           if (this[symbols.syncPromise]) await this[symbols.syncPromise];
-          // TODO: should trigger sync if actionNumber is not in sequence
-          this.store.dispatch({
-            ...payload,
-            type: this.actions.action,
-          });
+          if (payload.actionNumber === this.proxyState.actionNumber + 1) {
+            this.store.dispatch({
+              ...payload,
+              type: this.actions.action,
+            });
+          } else {
+            this::sync();
+          }
         }
       });
       this::sync();

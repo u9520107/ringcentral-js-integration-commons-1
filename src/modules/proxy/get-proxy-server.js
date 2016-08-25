@@ -24,7 +24,7 @@ export default function getProxyServer(Module) {
         transport,
       } = options;
       if (!transport) {
-        throw new Error('getProxyServer require transport to work...');
+        throw new Error('options.transport is missing');
       }
       transport.on(transport.events.request, async request => {
         const {
