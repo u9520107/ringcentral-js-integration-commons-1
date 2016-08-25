@@ -1,5 +1,5 @@
 import config from '../config';
-import RcModule, { addModule } from '../src/lib/rc-module';
+import RcModule, { addModule, initializeModule } from '../src/lib/rc-module';
 import RingCentral from 'ringcentral';
 import { combineReducers, createStore } from 'redux';
 import Loganberry from 'loganberry';
@@ -55,36 +55,24 @@ class Phone extends RcModule {
 
 const Server = getProxyServer(Phone);
 
-let serverStoreResolver = null;
-const promiseForServerStore = new Promise(resolve => {
-  serverStoreResolver = resolve;
-});
 
 const server = new Server({
   apiSettings: config.sdk,
-  promiseForStore: promiseForServerStore,
   transport,
 });
-
-serverStoreResolver(createStore(server.reducer));
+window.server = server;
+server::initializeModule(createStore(server.reducer));
 setTimeout(() => {
   const Client = getProxyClient(Phone);
-
-  let proxyStoreResolver = null;
-  const promiseForProxyStore = new Promise(resolve => {
-    proxyStoreResolver = resolve;
-  });
-
   const proxy = new Client({
     apiSettings: config.sdk,
-    promiseForStore: promiseForProxyStore,
     transport,
   });
   const store = createStore(proxy.reducer);
   store.subscribe(() => {
     logger.trace(JSON.stringify(store.getState(), null, 2));
   });
-  proxyStoreResolver(store);
+  proxy::initializeModule(store);
 
   proxy.auth.isLoggedIn().then(loggedIn => {
     console.log(proxy.auth.loginUrl({

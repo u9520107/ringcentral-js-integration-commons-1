@@ -1,10 +1,9 @@
-import RcModule from '../../lib/rc-module';
+import RcModule, { addModule } from '../../lib/rc-module';
 import proxyActions from './proxy-actions';
 import SymbolMap from 'data-types/symbol-map';
 import getProxyServerReducer from './get-proxy-server-reducer';
 
 const symbols = new SymbolMap([
-  'module',
   'reducer',
 ]);
 
@@ -15,10 +14,10 @@ export default function getProxyServer(Module) {
         ...options,
         actions: proxyActions,
       });
-      this[symbols.module] = new Module({
+      this::addModule('module', new Module({
         ...options,
         getState: () => this.state.module,
-      });
+      }));
 
       const {
         transport,
@@ -40,7 +39,7 @@ export default function getProxyServer(Module) {
           // omit the root part of the path
           const [...pathTokens] = functionPath.split('.').slice(1);
           const fnName = pathTokens.pop();
-          let module = this[symbols.module];
+          let module = this.module;
           pathTokens.forEach(token => {
             module = module[token];
           });
@@ -72,7 +71,7 @@ export default function getProxyServer(Module) {
       this[symbols.reducer] = getProxyServerReducer(
         this.prefix,
         transport,
-        this[symbols.module].reducer
+        this.module.reducer
       );
     }
     get reducer() {

@@ -1,18 +1,15 @@
 import { expect } from 'chai';
-import RcModule, { addModule, initFunction, suppressInit } from '../../src/lib/rc-module';
+import RcModule, { addModule, initFunction, suppressInit, initializeModule } from '../../src/lib/rc-module';
 import { ActionMap, prefixActions } from '../../src/lib/redux-helper';
 import { createStore, combineReducers } from 'redux';
 import uuid from 'uuid';
-const neverResolved = new Promise(() => { });
 
 describe('RcModule', () => {
   it('should be a constructor function', () => {
     expect(RcModule).to.be.a('function');
   });
   it('should return a RcModule instance', () => {
-    const module = new RcModule({
-      promiseForStore: neverResolved,
-    });
+    const module = new RcModule();
     expect(module).to.be.instanceof(RcModule);
   });
   describe('constructor options parameter', () => {
@@ -20,31 +17,9 @@ describe('RcModule', () => {
       it('should be a function', () => {
         expect(() => {
           const module = new RcModule({
-            promiseForStore: neverResolved,
             getState: {},
           });
         }).to.throw('The `getState` options property must be of type function');
-      });
-    });
-    describe('promiseForStore', () => {
-      it('should require a promiseForStore options property', () => {
-        expect(() => {
-          const module = new RcModule();
-        }).to.throw(
-          'The `promiseForStore` options property must be a promise or promise-like object'
-          );
-        expect(() => {
-          const module = new RcModule({
-            promiseForStore: {},
-          });
-        }).to.throw(
-          'The `promiseForStore` options property must be a promise or promise-like object'
-          );
-        expect(() => {
-          const module = new RcModule({
-            promiseForStore: neverResolved,
-          });
-        }).to.not.throw();
       });
     });
     describe('prefix', () => {
@@ -53,14 +28,12 @@ describe('RcModule', () => {
         prefixes.forEach(p => {
           expect(() => {
             const module = new RcModule({
-              promiseForStore: neverResolved,
               prefix: p,
             });
           }).to.throw('The `prefix` options property must be null, undefined, or a string');
         });
         expect(() => {
           const module = new RcModule({
-            promiseForStore: neverResolved,
             prefix: 'string',
           });
         }).to.not.throw();
@@ -73,7 +46,6 @@ describe('RcModule', () => {
           'actionB',
         ]);
         const module = new RcModule({
-          promiseForStore: neverResolved,
           actions,
         });
         expect(module.actions).to.deep.equal(actions);
@@ -86,9 +58,7 @@ describe('RcModule instance', async () => {
   describe('RcModule instance properties', async () => {
     describe('actions', async () => {
       it('should be undefined if not set in options', () => {
-        const module = new RcModule({
-          promiseForStore: neverResolved,
-        });
+        const module = new RcModule();
         expect(module.actions).to.be.undefined;
       });
       it('should should be prefixed if prefix is set', () => {
@@ -99,7 +69,6 @@ describe('RcModule instance', async () => {
         ]);
         const module = new RcModule({
           prefix,
-          promiseForStore: neverResolved,
           actions,
         });
         expect(module.actions).to.deep.equal(prefixActions(actions, prefix));
@@ -107,34 +76,18 @@ describe('RcModule instance', async () => {
     });
     describe('reducer', async () => {
       it('should have a default reducer', () => {
-        const module = new RcModule({
-          promiseForStore: neverResolved,
-        });
+        const module = new RcModule();
         expect(module.reducer).to.be.a('function');
       });
       describe('default reducer', async () => {
-        it('should return empty object as initial state', async () => {
-          let resolver = null;
-          const promiseForStore = new Promise(resolve => {
-            resolver = resolve;
-          });
-          const module = new RcModule({
-            promiseForStore,
-          });
-          resolver(createStore(module.reducer));
-          await promiseForStore;
+        it('should return empty object as initial state', () => {
+          const module = new RcModule();
+          module::initializeModule(createStore(module.reducer));
           expect(module.state).to.deep.equal({});
         });
-        it('should ignore actions', async () => {
-          let resolver = null;
-          const promiseForStore = new Promise(resolve => {
-            resolver = resolve;
-          });
-          const module = new RcModule({
-            promiseForStore,
-          });
-          resolver(createStore(module.reducer));
-          await promiseForStore;
+        it('should ignore actions', () => {
+          const module = new RcModule();
+          module::initializeModule(createStore(module.reducer));
           module.store.dispatch({
             type: 'test',
           });
@@ -143,22 +96,13 @@ describe('RcModule instance', async () => {
       });
     });
     describe('store', async () => {
-      it('should throw error if trying to access before promiseForStore is resolved', () => {
-        const module = new RcModule({
-          promiseForStore: neverResolved,
-        });
+      it('should throw error if trying to access before initializeModule', () => {
+        const module = new RcModule();
         expect(() => module.store).to.be.throw();
       });
-      it('should return a store object after promiseForStore has been fulfilled', async () => {
-        let resolver;
-        const promiseForStore = new Promise((resolve) => {
-          resolver = resolve;
-        });
-        const module = new RcModule({
-          promiseForStore,
-        });
-        resolver(createStore(module.reducer));
-        await promiseForStore;
+      it('should return a store object after initializeModule', () => {
+        const module = new RcModule();
+        module::initializeModule(createStore(module.reducer));
         expect(module.store).to.exists;
         expect(module.store.dispatch).to.be.a('function');
         expect(module.store.getState).to.be.a('function');
@@ -184,36 +128,16 @@ describe('RcModule instance', async () => {
           return this[REDUCER];
         }
       }
-      it('should be undefined if promiseForStore is not fulfilled', () => {
-        const module = new Test({
-          promiseForStore: neverResolved,
-        });
-        expect(() => module.state).to.throw();
-      });
-      it('should return initial state after promiseForStore is resolved', async () => {
-        let resolver = null;
-        const promiseForStore = new Promise(resolve => {
-          resolver = resolve;
-        });
-        const module = new Test({
-          promiseForStore,
-        });
-        resolver(createStore(module.reducer));
-        await promiseForStore;
+      it('should return initial state after initializeModule with store', async () => {
+        const module = new Test();
+        module::initializeModule(createStore(module.reducer));
         expect(module.state).to.deep.equal({
           value: 0,
         });
       });
       it('should return new state after action has been dispatched', async () => {
-        let resolver = null;
-        const promiseForStore = new Promise(resolve => {
-          resolver = resolve;
-        });
-        const module = new Test({
-          promiseForStore,
-        });
-        resolver(createStore(module.reducer));
-        await promiseForStore;
+        const module = new Test();
+        module::initializeModule(createStore(module.reducer));
         expect(module.state).to.deep.equal({
           value: 0,
         });
@@ -225,15 +149,12 @@ describe('RcModule instance', async () => {
     });
     describe('prefix', async () => {
       it('should be undefined if not defined in options', () => {
-        const module = new RcModule({
-          promiseForStore: neverResolved,
-        });
+        const module = new RcModule();
         expect(module.prefix).to.be.undefined;
       });
       it('should return prefix string if defined in options', () => {
         const prefix = uuid.v4();
         const module = new RcModule({
-          promiseForStore: neverResolved,
           prefix,
         });
         expect(module.prefix).to.equal(prefix);
@@ -256,9 +177,7 @@ describe('RcModule instance', async () => {
           return this[REDUCER];
         }
       }
-      const module = new RootModule({
-        promiseForStore: neverResolved,
-      });
+      const module = new RootModule();
       it('should be `root` for root modules', () => {
         expect(module.modulePath).to.equal('root');
       });
@@ -273,44 +192,30 @@ describe('initFunction decorator', async () => {
   it('should be a function', () => {
     expect(initFunction).to.be.a('function');
   });
-  it('should decorates a class method so the method is called after promiseForStore resolves',
+  it('should decorates a class method so the method is called after initializeModule',
     async () => {
       let initRun = false;
-      let resolver = null;
-      const promiseForStore = new Promise(resolve => {
-        resolver = resolve;
-      });
       class Test extends RcModule {
         @initFunction
         myFunction() {
           initRun = true;
         }
       }
-      const module = new Test({
-        promiseForStore,
-      });
-      resolver(createStore(module.reducer));
-      await promiseForStore;
+      const module = new Test();
+      module::initializeModule(createStore(module.reducer));
       expect(initRun).to.be.true;
     }
   );
   it('should make the class method unable to be called', async () => {
     let initRun = false;
-    let resolver = null;
-    const promiseForStore = new Promise(resolve => {
-      resolver = resolve;
-    });
     class Test extends RcModule {
       @initFunction
       myFunction() {
         initRun = true;
       }
     }
-    const module = new Test({
-      promiseForStore,
-    });
-    resolver(createStore(module.reducer));
-    await promiseForStore;
+    const module = new Test();
+    module::initializeModule(createStore(module.reducer));
     expect(initRun).to.be.true;
     expect(() => module.myFunction()).to.throw();
   });
@@ -342,24 +247,17 @@ describe('suppressInit', async () => {
   it('should be a function', () => {
     expect(suppressInit).to.be.a('function');
   });
-  it('should be able to suppress initFunction if called before promiseForStore', async () => {
+  it('should be able to suppress initFunction if called before initializeModule', async () => {
     let initRun = false;
-    let resolver = null;
-    const promiseForStore = new Promise(resolve => {
-      resolver = resolve;
-    });
     class Test extends RcModule {
       @initFunction
       myFunction() {
         initRun = true;
       }
     }
-    const module = new Test({
-      promiseForStore,
-    });
+    const module = new Test();
     module::suppressInit();
-    resolver(createStore(module.reducer));
-    await promiseForStore;
+    module::initializeModule(createStore(module.reducer));
     expect(initRun).to.be.false;
   });
 });
@@ -380,9 +278,7 @@ describe('addModule', () => {
   });
 
   it('should throw if property of the same name exists', () => {
-    const module = new RcModule({
-      promiseForStore: neverResolved,
-    });
+    const module = new RcModule();
     const foo = {};
     const bar = {};
     let isFooAdded = false;
@@ -395,23 +291,15 @@ describe('addModule', () => {
   });
 
   it('should set modulePath for the subModule', () => {
-    const module = new RcModule({
-      promiseForStore: neverResolved,
-    });
-    const subModule = new RcModule({
-      promiseForStore: neverResolved,
-    });
+    const module = new RcModule();
+    const subModule = new RcModule();
     module::addModule('sub', subModule);
     expect(module.modulePath).to.equal('root');
     expect(subModule.modulePath).to.equal('root.sub');
   });
   it('should not set the modulePath for a subModule if the subModule is added as a subModule of a different name', () => {
-    const module = new RcModule({
-      promiseForStore: neverResolved,
-    });
-    const subModule = new RcModule({
-      promiseForStore: neverResolved,
-    });
+    const module = new RcModule();
+    const subModule = new RcModule();
     module::addModule('sub', subModule);
     expect(module.modulePath).to.equal('root');
     expect(subModule.modulePath).to.equal('root.sub');
@@ -419,23 +307,74 @@ describe('addModule', () => {
     expect(module.sub2).to.equal(subModule);
     expect(module.sub2.modulePath).to.equal('root.sub');
   });
+});
 
-  // it('should define the module as a named property of the target', () => {
-  //   const target = {};
-  //   const module = {};
-  //   const name = 'foo';
-  //   target::addModule(name, module);
-  //   expect(target).to.have.ownProperty(name);
-  //   expect(target[name]).to.equal(module);
-  // });
-  // it('should throw error when trying to add another module with the same name', () => {
-  //   const target = {};
-  //   const module1 = {};
-  //   const module2 = {};
-  //   const name = 'foo';
-  //   target::addModule(name, module1);
-  //   expect(() => {
-  //     target::addModule(name, module2);
-  //   }).to.throw(`module '${name}' already exists...`);
-  // });
+describe('initializeModule', async () => {
+  it('should be a function', () => {
+    expect(initializeModule).to.be.a('function');
+  });
+  it('should only be used scope-bound to RcModule instance', () => {
+    expect(() => {
+      initializeModule();
+    }).to.throw();
+    expect(() => {
+      const test = {};
+      test::initializeModule();
+    }).to.throw();
+    expect(() => {
+      const module = new RcModule();
+      module::initializeModule(createStore(module.reducer));
+    }).to.not.throw();
+  });
+  it('should have mandatory parameter store', () => {
+    expect(() => {
+      const module = new RcModule();
+      module::initializeModule();
+    }).to.throw();
+  });
+  it('should set store to nested modules', () => {
+    class Test extends RcModule {
+      constructor(options) {
+        super(options);
+        this::addModule('sub', new RcModule());
+      }
+    }
+    const module = new Test();
+    module::initializeModule(createStore(module.reducer));
+    expect(module.store).to.exists;
+    expect(module.sub.store).to.exists;
+  });
+  it('should trigger initFunctions for nested modules', () => {
+    let subRun = false;
+    let mainRun = false;
+    class Sub extends RcModule {
+      @initFunction
+      subFunc() {
+        subRun = true;
+      }
+    }
+    class Main extends RcModule {
+      constructor(options) {
+        super(options);
+        this::addModule('sub', new Sub(options));
+      }
+      @initFunction
+      mainFunc() {
+        mainRun = true;
+      }
+    }
+    const module = new Main();
+    module::initializeModule(createStore(module.reducer));
+    expect(subRun).to.be.true;
+    expect(mainRun).to.be.true;
+  });
+  it('should only be used once on a module', () => {
+    const module = new RcModule();
+    expect(() => {
+      module::initializeModule(createStore(module.reducer));
+    }).to.not.throw();
+    expect(() => {
+      module::initializeModule(createStore(module.reducer));
+    }).to.throw();
+  });
 });

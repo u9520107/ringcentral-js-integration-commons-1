@@ -46,7 +46,6 @@ export default class RcModule extends Emitter {
   constructor(options = {}) {
     super();
     const {
-      promiseForStore,
       getState = defaultGetState,
       prefix,
       actions,
@@ -62,31 +61,6 @@ export default class RcModule extends Emitter {
     }
     this[symbols.prefix] = prefix;
     this[symbols.actions] = actions && prefixActions(actions, prefix);
-
-    if (!promiseForStore || typeof promiseForStore.then !== 'function') {
-      throw new Error(
-        'The `promiseForStore` options property must be a promise or promise-like object'
-      );
-    }
-    promiseForStore.then((store) => {
-      logger.trace('promiseForStore resolved');
-      this[symbols.store] = store;
-
-      // state change event for state tracking
-      store.subscribe(() => {
-        const oldState = this[symbols.oldState];
-        const newState = this.state;
-        this.emit('state-change', {
-          oldState,
-          newState,
-        });
-        this[symbols.oldState] = newState;
-      });
-
-      if (!this[symbols.suppressInit] && typeof this[symbols.initFunction] === 'function') {
-        this[symbols.initFunction]();
-      }
-    });
   }
 
   get state() {
@@ -97,7 +71,7 @@ export default class RcModule extends Emitter {
   }
   get store() {
     if (!this[symbols.store]) {
-      throw new Error('promiseForStore has not been initialized...');
+      throw new Error('module has not been initialized...');
     }
     return this[symbols.store];
   }
@@ -180,4 +154,48 @@ export function initFunction(prototype, property, descriptor) {
  */
 export function suppressInit() {
   this[symbols.suppressInit] = true;
+}
+
+
+function setStore(store) {
+  logger.trace('setStore');
+  this[symbols.store] = store;
+
+  // state change event for state tracking
+  store.subscribe(() => {
+    const oldState = this[symbols.oldState];
+    const newState = this.state;
+    this.emit('state-change', {
+      oldState,
+      newState,
+    });
+    this[symbols.oldState] = newState;
+  });
+  for (const subModule in this) {
+    if (this.hasOwnProperty(subModule) && this[subModule] instanceof RcModule) {
+      this[subModule]::setStore(store);
+    }
+  }
+}
+
+function callInit() {
+  if (!this[symbols.suppressInit] && typeof this[symbols.initFunction] === 'function') {
+    this[symbols.initFunction]();
+  }
+  for (const subModule in this) {
+    if (this.hasOwnProperty(subModule) && this[subModule] instanceof RcModule) {
+      this[subModule]::callInit();
+    }
+  }
+}
+
+export function initializeModule(store) {
+  if (!(this instanceof RcModule)) {
+    throw new Error('initializeModule should be scope-bound to a RcModule instance');
+  }
+  if (this[symbols.store]) {
+    throw new Error('Module has already been initialized');
+  }
+  this::setStore(store);
+  this::callInit();
 }

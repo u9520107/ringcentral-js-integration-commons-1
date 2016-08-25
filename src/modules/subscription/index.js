@@ -12,7 +12,6 @@ const symbols = new SymbolMap([
   'sdk',
   'platform',
   'subscription',
-  'promiseForStore',
 ]);
 
 /**
@@ -113,13 +112,11 @@ export default class Subscription extends RcModule {
       auth,
       platform,
       sdk,
-      promiseForStore,
     } = options;
     this[symbols.auth] = auth;
     this[symbols.platform] = platform;
     this[symbols.sdk] = sdk;
     this[symbols.subscription] = null;
-    this[symbols.promiseForStore] = promiseForStore;
 
     // send events based on state change
     this.on('state-change', ({ oldState, newState }) => {
@@ -175,11 +172,10 @@ export default class Subscription extends RcModule {
 
   @proxify
   async subscribe(event) {
-    const store = this.store || (await this[symbols.promiseForStore]);
     if (this.filters.indexOf(event) === -1) {
       const newFilters = this.filters.slice();
       newFilters.push(event);
-      store.dispatch({
+      this.store.dispatch({
         type: this.actions.updateFilters,
         filters: newFilters,
       });
@@ -192,12 +188,11 @@ export default class Subscription extends RcModule {
 
   @proxify
   async unsubscribe(event) {
-    const store = this.store || (await this[symbols.promiseForStore]);
     const idx = this.filters.indexOf(event);
     if (this.filters.indexOf(event) > -1) {
       const newFilters = this.filters.slice();
       newFilters.splice(idx, 1);
-      store.dispatch({
+      this.store.dispatch({
         type: this.actions.updateFilters,
         filters: newFilters,
       });
